@@ -1,110 +1,173 @@
 import pygame
 import time
 import random
-import sys
+from enum import Enum
 
-# Game setup
-# window
-size_x = 720
-size_y = 480
-pygame.init()
+#some taken from replit, some from geeksforgeeks, otherwise adapted such as multiple fruits
 
-# FPS (frames per second) controller
-fps = pygame.time.Clock()
- 
-pygame.display.set_caption('Snek')
-game_window = pygame.display.set_mode((size_x, size_y))
+class Direction(Enum):
+  UP = 0
+  DOWN = 1
+  LEFT = 2
+  RIGHT = 3
 
-# Snake and fruit setup
-# snake
-snake_pos = [(size_x // 2, size_y // 2)]
-snake_size = 1
-snake_speed = 10
+class Food:
+    block_size = None
+    color = (0,255,0)
+    x = 0;
+    y = 0;
+    bounds = None
+
+    def __init__(self, block_size, bounds):
+        self.block_size = block_size
+        self.bounds = bounds
+
+    def draw(self, game, window):
+        game.draw.rect(window, self.color, (self.x, self.y, self.block_size, self.block_size))
+
+    def respawn(self):
+        blocks_in_x = (self.bounds[0])//self.block_size
+        blocks_in_y = (self.bounds[1])//self.block_size
+        self.x = random.randint(0, blocks_in_x - 1) * self.block_size
+        self.y = random.randint(0, blocks_in_y - 1) * self.block_size
 
 class Snake:
-    def __init__(self, pos, size):
-        self.pos = pos
-        self.size = size
-    def update(self):
-        pass
-    def draw(self):
-        pass
-    def grow(self):
-        pass
-    def check_collision(self):
-        pass
-    def check_wall_collision(self):
-        pass
+  length = None
+  direction = None
+  body = None
+  block_size = None
+  color = (0,0,255)
+  bounds = None
 
-# fruit
-def gen_fruit():
-    return (random.randint(0, size_x // 20) * 20, random.randint(0, size_y // 20) * 20)
+  def __init__(self, block_size, bounds):
+    self.block_size = block_size
+    self.bounds = bounds
+    self.respawn()
 
-fruit_pos = gen_fruit()
+  def respawn(self):
+    self.length = 3
+    self.body = [(20,20),(20,40),(20,60)]
+    self.direction = Direction.DOWN
+
+  def draw(self, game, window):
+    for segment in self.body:
+      game.draw.rect(window, self.color, (segment[0],segment[1],self.block_size, self.block_size))
+
+  def move(self):
+    curr_head = self.body[-1]
+    if self.direction == Direction.DOWN:
+      next_head = (curr_head[0], curr_head[1] + self.block_size)
+      self.body.append(next_head)
+    elif self.direction == Direction.UP:
+      next_head = (curr_head[0], curr_head[1] - self.block_size)
+      self.body.append(next_head)
+    elif self.direction == Direction.RIGHT:
+      next_head = (curr_head[0] + self.block_size, curr_head[1])
+      self.body.append(next_head)
+    elif self.direction == Direction.LEFT:
+      next_head = (curr_head[0] - self.block_size, curr_head[1])
+      self.body.append(next_head)
+
+    if self.length < len(self.body):
+      self.body.pop(0)
+
+  def steer(self, direction):
+    if self.direction == Direction.DOWN and direction != Direction.UP:
+      self.direction = direction
+    elif self.direction == Direction.UP and direction != Direction.DOWN:
+      self.direction = direction
+    elif self.direction == Direction.LEFT and direction != Direction.RIGHT:
+      self.direction = direction
+    elif self.direction == Direction.RIGHT and direction != Direction.LEFT:
+      self.direction = direction
+
+  def eat(self):
+    self.length += 1
+
+  def check_for_food(self, food):
+    head = self.body[-1]
+    if head[0] == food.x and head[1] == food.y:
+      self.eat()
+      return True
+
+  def check_tail_collision(self):
+    head = self.body[-1]
+    has_eaten_tail = False
+
+    for i in range(len(self.body) - 1):
+      segment = self.body[i]
+      if head[0] == segment[0] and head[1] == segment[1]:
+        has_eaten_tail = True
+
+    return has_eaten_tail
+
+  def check_bounds(self):
+    head = self.body[-1]
+    if head[0] >= self.bounds[0]:
+      return True
+    if head[1] >= self.bounds[1]:
+      return True
+
+    if head[0] < 0:
+        return True
+    if head[1] < 0:
+        return True
+
+    return False
+
+pygame.init()
+bounds = (720, 480)
+window = pygame.display.set_mode(bounds)
+pygame.display.set_caption("Snek")
+
+block_size = 20
+snake = Snake(block_size, bounds)
+foods = [Food(block_size,bounds)]
 fruit_spawn_time = time.time() # Time when the fruit was last spawned
 
-# Snake movement and frame updates
-direction = "RIGHT"
-change_to = direction
+run = True
+while run:
+  pygame.time.delay(100)
+  for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+      run = False
 
-def update_snake():
-    global direction, snake_pos, snake_size
+  keys = pygame.key.get_pressed()
+  if keys[pygame.K_LEFT]:
+    snake.steer(Direction.LEFT)
+  elif keys[pygame.K_RIGHT]:
+    snake.steer(Direction.RIGHT)
+  elif keys[pygame.K_UP]:
+    snake.steer(Direction.UP)
+  elif keys[pygame.K_DOWN]:
+    snake.steer(Direction.DOWN)
+  # make eventual pause menu via ESCAPE
+    
+  # Fruit spawn logic
+  if time.time() - fruit_spawn_time >= 5:  # Spawn a new fruit every 5 seconds
+      food = Food(block_size,bounds)
+      food.respawn()
+      foods.append(food)
+      fruit_spawn_time = time.time()
+      
+  snake.move()
+  for f in foods:
+    if(snake.check_for_food(f)):
+      foods.pop(foods.index(f))
 
-    if direction == "UP":
-        snake_pos[0] = (snake_pos[0][0], snake_pos[0][1] - 20)
-    elif direction == "DOWN":
-        snake_pos[0] = (snake_pos[0][0], snake_pos[0][1] + 20)
-    elif direction == "LEFT":
-        snake_pos[0] = (snake_pos[0][0] - 20, snake_pos[0][1])
-    elif direction == "RIGHT":
-        snake_pos[0] = (snake_pos[0][0] + 20, snake_pos[0][1])
-
-    # Check if snake collides with itself
-    for block in snake_pos[1:]:
-        if snake_pos[0] == block:
-            pygame.quit()
-            sys.exit()
-
-    # Check if snake collides with the wall
-    if snake_pos[0][0] < 0 or snake_pos[0][0] >= size_x or snake_pos[0][1] < 0 or snake_pos[0][1] >= size_y:
-        pygame.quit()
-        sys.exit()
-
-    # Draw the snake
-    for pos in snake_pos:
-        pygame.draw.rect(game_window, (0, 255, 0), (pos[0], pos[1], 20, 20))
-
-# Game loop
-while True:
-    game_window.fill((0, 0, 0))
-    # Fruit spawn logic
-    if time.time() - fruit_spawn_time >= 1:  # Spawn a new fruit every 5 seconds
-        fruit_pos = gen_fruit()
-        fruit_spawn_time = time.time()
-
-    # Draw the fruit
-    pygame.draw.rect(game_window, (255, 0, 0), (fruit_pos[0], fruit_pos[1], 20, 20))
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP and direction != "DOWN":
-                change_to = "UP"
-            elif event.key == pygame.K_DOWN and direction != "UP":
-                change_to = "DOWN"
-            elif event.key == pygame.K_LEFT and direction != "RIGHT":
-                change_to = "LEFT"
-            elif event.key == pygame.K_RIGHT and direction != "LEFT":
-                change_to = "RIGHT"
-
-    # Update snake direction
-    direction = change_to
-
-    # Update snake position and check for collisions
-    update_snake()
-
+  if snake.check_bounds() == True or snake.check_tail_collision() == True:
     pygame.display.update()
+    pygame.time.delay(1000)
+    snake.respawn()
+    #make a better way to clean up food regen
+    foods.clear()
+    food = Food(block_size, bounds)
+    food.respawn()
+    foods.append(food)
+    fruit_spawn_time = time.time()
 
-    fps.tick(snake_speed)
+  window.fill((0,0,0))
+  snake.draw(pygame, window)
+  for f in foods:
+    f.draw(pygame, window)
+  pygame.display.update()
