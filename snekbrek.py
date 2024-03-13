@@ -11,33 +11,64 @@ screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("The Epic Adventures of Sir Slithersworth the Snake-Smashing, Block-Breaking, Pythonic Pursuer of Pixelated Peril: A Tale of Code, Chaos, and Comedic Catastrophe in the Virtual Realm of VsCode!?")
 
 # but has snake functionality
+
 class Paddle:
+    length = 1
+    body = None
+    block_size = 10
     def __init__(self):
         self.respawn()
     def move(self):
         # reset movement direction
-        self.direction = 0
+        self.direction_x = 0
+        self.direction_y = 0
+        curr_head = self.body[-1]
         key = pygame.key.get_pressed()
         if key[pygame.K_LEFT] and self.rect.left > 0:
             self.rect.x -= self.speed
-            self.direction = -1
-        if key[pygame.K_RIGHT] and self.rect.right < screen_width:
+            self.direction_x = -1
+            next_head = (curr_head[0] - self.block_size, curr_head[1])
+            rect = pygame.Rect(next_head[0], next_head[1], self.block_size, self.block_size)
+            self.body.append(rect)
+        elif key[pygame.K_RIGHT] and self.rect.right < screen_width:
             self.rect.x += self.speed
-            self.direction = 1
+            self.direction_x = 1
+            next_head = (curr_head[0] + self.block_size, curr_head[1])
+            rect = pygame.Rect(next_head[0], next_head[1], self.block_size, self.block_size)
+            self.body.append(rect)
+        elif key[pygame.K_UP] and self.rect.top > 0:
+            self.rect.y -= self.speed
+            self.direction_y = -1
+            next_head = (curr_head[0], curr_head[1] - self.block_size)
+            rect = pygame.Rect(next_head[0], next_head[1], self.block_size, self.block_size)
+            self.body.append(rect)
+        elif key[pygame.K_DOWN] and self.rect.bottom < screen_height:
+            self.rect.y += self.speed
+            self.direction_y = 1
+            next_head = (curr_head[0], curr_head[1] + self.block_size)
+            rect = pygame.Rect(next_head[0], next_head[1], self.block_size, self.block_size)
+            self.body.append(rect)
+        
+        if self.length < len(self.body):
+          self.body.pop(0)
+    
     def draw(self):
         pygame.draw.rect(screen, (0,255,0), self.rect)
-        #snake
-        for segment in self.body:
-            pygame.draw.rect(screen, (0,255,0), (segment[0],segment[1],self.block_size, self.block_size))
+        # how draw rest of body?
+        for segment in self.body[:-1]:
+            pygame.draw.rect(screen, (0,255,0), segment)
     def respawn(self):
-        self.block_size = 10
-        self.bounds = (screen_width, screen_height)
-        self.rect = pygame.Rect(100, 400, 100, 10)
-        self.length = 3
-        self.body = [(20,20),(20,40),(20,60)]
-        self.direction = Direction.DOWN
-        #self.direction = 0
+        self.rect = pygame.Rect(100, 400, self.block_size, self.block_size)
+        self.body = [self.rect]
+        self.direction_x = 0
+        self.direction_y = 0
         self.speed = 2
+    def check_for_food(self, food):
+        if self.rect.x >= food.x - self.block_size and self.rect.x <= food.x + self.block_size and self.rect.y >= food.y - self.block_size and self.rect.y <= food.y + self.block_size:
+            self.eat()
+            return True
+    def eat(self):
+        self.length += 1
         
 class Ball:
     def __init__(self):
@@ -94,7 +125,7 @@ class Direction(Enum):
 
 class Food:
     block_size = None
-    color = (0,255,0)
+    color = (255,0,0)
     x = 0;
     y = 0;
     bounds = None
@@ -112,89 +143,6 @@ class Food:
         self.x = random.randint(0, blocks_in_x - 1) * self.block_size
         self.y = random.randint(0, blocks_in_y - 1) * self.block_size
 
-class Snake:
-  length = None
-  direction = None
-  body = None
-  block_size = None
-  color = (0,0,255)
-  bounds = None
-
-  def __init__(self):
-    self.block_size = 10
-    self.bounds = (screen_width, screen_height)
-    self.respawn()
-
-  def respawn(self):
-    self.length = 3
-    self.body = [(20,20),(20,40),(20,60)]
-    self.direction = Direction.DOWN
-
-  def draw(self, game, window):
-    for segment in self.body:
-      game.draw.rect(window, self.color, (segment[0],segment[1],self.block_size, self.block_size))
-
-  def move(self):
-    curr_head = self.body[-1]
-    if self.direction == Direction.DOWN:
-      next_head = (curr_head[0], curr_head[1] + self.block_size)
-      self.body.append(next_head)
-    elif self.direction == Direction.UP:
-      next_head = (curr_head[0], curr_head[1] - self.block_size)
-      self.body.append(next_head)
-    elif self.direction == Direction.RIGHT:
-      next_head = (curr_head[0] + self.block_size, curr_head[1])
-      self.body.append(next_head)
-    elif self.direction == Direction.LEFT:
-      next_head = (curr_head[0] - self.block_size, curr_head[1])
-      self.body.append(next_head)
-
-    if self.length < len(self.body):
-      self.body.pop(0)
-
-  def steer(self, direction):
-    if self.direction == Direction.DOWN and direction != Direction.UP:
-      self.direction = direction
-    elif self.direction == Direction.UP and direction != Direction.DOWN:
-      self.direction = direction
-    elif self.direction == Direction.LEFT and direction != Direction.RIGHT:
-      self.direction = direction
-    elif self.direction == Direction.RIGHT and direction != Direction.LEFT:
-      self.direction = direction
-
-  def eat(self):
-    self.length += 1
-
-  def check_for_food(self, food):
-    head = self.body[-1]
-    if head[0] == food.x and head[1] == food.y:
-      self.eat()
-      return True
-
-  def check_tail_collision(self):
-    head = self.body[-1]
-    has_eaten_tail = False
-
-    for i in range(len(self.body) - 1):
-      segment = self.body[i]
-      if head[0] == segment[0] and head[1] == segment[1]:
-        has_eaten_tail = True
-
-    return has_eaten_tail
-
-  def check_bounds(self):
-    head = self.body[-1]
-    if head[0] >= self.bounds[0]:
-      return True
-    if head[1] >= self.bounds[1]:
-      return True
-
-    if head[0] < 0:
-        return True
-    if head[1] < 0:
-        return True
-
-    return False
 
 if __name__ == "__main__":  
     paddle = Paddle()
@@ -235,17 +183,17 @@ if __name__ == "__main__":
             #     snake.steer(Direction.DOWN)
             # # make eventual pause menu via ESCAPE
                 
-            # # Fruit spawn logic
-            # if time.time() - fruit_spawn_time >= 5:  # Spawn a new fruit every 5 seconds
-            #     food = Food(block_size,bounds)
-            #     food.respawn()
-            #     foods.append(food)
-            #     fruit_spawn_time = time.time()
+            # Fruit spawn logic
+            if time.time() - fruit_spawn_time >= 5:  # Spawn a new fruit every 5 seconds
+                food = Food(10,(screen_width, screen_height))
+                food.respawn()
+                foods.append(food)
+                fruit_spawn_time = time.time()
                 
             # snake.move()
-            # for f in foods:
-            #     if(snake.check_for_food(f)):
-            #     foods.pop(foods.index(f))
+            for f in foods:
+                if(paddle.check_for_food(f)):
+                    foods.pop(foods.index(f))
 
             # if snake.check_bounds() == True or snake.check_tail_collision() == True:
             #     pygame.display.update()
@@ -258,9 +206,8 @@ if __name__ == "__main__":
             #     foods.append(food)
             #     fruit_spawn_time = time.time()
             screen.fill((0,0,0))
-            # snake becomes paddle
-            #paddle.draw()
-            #paddle.move()
+            paddle.draw()
+            paddle.move()
             for f in foods:
                 f.draw(pygame, screen)
             ball.draw()
