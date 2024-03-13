@@ -46,16 +46,16 @@ class Ball:
         self.check_collision()
     def draw(self):
          pygame.draw.circle(screen, (255,)*3, self.pos, self.rad, 0)
-    def check_bounds(self):
-        pass
     def check_collision(self):
         # check for collision with paddle
         if self.pos[1] + self.rad >= paddle.rect.top and self.pos[1] - self.rad <= paddle.rect.bottom and self.pos[0] >= paddle.rect.left and self.pos[0] <= paddle.rect.right:
             self.vel = (self.vel[0], -self.vel[1])
-        
-        #if self.pos[0] >= paddle.rect.left and self.pos[0] <= paddle.rect.right:
-        #    self.vel = (-self.vel[0], self.vel[1])
-
+        # fix corner collisions
+        # check for collision with bricks
+        for b in bricks.bricks:
+            if self.pos[1] + self.rad >= b.top and self.pos[1] - self.rad <= b.bottom and self.pos[0] >= b.left and self.pos[0] <= b.right:
+                self.vel = (self.vel[0], -self.vel[1])
+                bricks.bricks.remove(b)
     def respawn(self):
         self.pos = (300, 300)
         self.rad = 5
@@ -72,8 +72,8 @@ class Brick:
     def respawn(self):
         self.cols = 5
         self.rows = 3
-        self.width = 50
-        self.height = 20
+        self.width = (screen_width-100) // self.cols
+        self.height = (screen_height/4) // self.rows
         self.padding = 10
         self.offset = 30
         self.bricks = []
